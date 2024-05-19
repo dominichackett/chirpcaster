@@ -54,6 +54,8 @@ module.exports ={
       "red-700":"#b91c1c",
       "red-50":"#fef2f2",
       "blue-500":"#3b82f6",
+      "blue-600":"#2563eb",
+
       'blue-dark': '#0A2540', // Dark blue background color
       'blue-medium': '#1C4B75', // Medium blue color for circular lines
       'blue-light': '#3E92CC', // Light blue highlights on text and icons
