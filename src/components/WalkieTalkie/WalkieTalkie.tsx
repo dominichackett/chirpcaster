@@ -227,7 +227,7 @@ const WalkieTalkie = ({ onClick }) => {
         placeholder="Type your message here..."
         className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 flex-1 mr-2"
       />
-      <button className="flex items-center justify-center bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none">
+      <button className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 focus:outline-none">
         <FontAwesomeIcon  icon={faUpload} className="w-6 h-6 mr-2" />
       </button>
     </div>}
