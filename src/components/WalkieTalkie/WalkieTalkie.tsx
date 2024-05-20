@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faEnvelope, faUsers,faWalkieTalkie,faMicrophone,faUpload ,faVolumeMute,faVolumeHigh} from '@fortawesome/free-solid-svg-icons';
+import { faHome, faComments, faUsers,faWalkieTalkie,faMicrophone,faUpload ,faVolumeMute,faVolumeHigh} from '@fortawesome/free-solid-svg-icons';
 
 const WalkieTalkie = ({ onClick }) => {
   const buttonRef = useRef(null);
@@ -137,7 +137,7 @@ const WalkieTalkie = ({ onClick }) => {
       {minimized ? (
         <button
           ref={buttonRef}
-          className="z-[99999] fixed flex items-center justify-center w-12 h-12 text-white bg-blue-500 rounded-full shadow-lg cursor-pointer hover:bg-blue-700"
+          className={`${micButtonColor} z-[99999] fixed flex items-center justify-center w-12 h-12 text-white bg-blue-500 rounded-full shadow-lg cursor-pointer hover:bg-blue-700`}
           style={{ left: `${position.x}px`, top: `${position.y}px` }}
           onMouseDown={handleMouseDown}
           onClick={toggleMinimize}
@@ -256,7 +256,7 @@ const WalkieTalkie = ({ onClick }) => {
               <FontAwesomeIcon icon={faHome} size="2x"  />
             </button>
             <button onClick={()=>setSelectedTab(2)} className={selectedTab == 2 ? `text-red`:`text-white hover:text-red`} title="Messages">
-              <FontAwesomeIcon icon={faEnvelope} size="2x" />
+              <FontAwesomeIcon icon={faComments} size="2x" />
             </button>
             <button onClick={()=>setSelectedTab(3)} className={selectedTab == 3 ? `text-red`:`text-white hover:text-red`} title="Users">
               <FontAwesomeIcon icon={faUsers} size="2x"  />
