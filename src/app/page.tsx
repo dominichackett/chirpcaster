@@ -55,7 +55,7 @@ export default function Home() {
                ChirpCaster - Push to Talk
                              </h1>
               <p
-                className="mb-8 text-lg font-medium leading-relaxed text-white md:pr-14 bg-grey"
+                className="mb-8 text-lg font-medium leading-relaxed text-white md:pr-14 "
               >
 
 Chirpcaster is an innovative push-to-talk decentralized application (dApp) designed to facilitate real-time voice communication over blockchain networks. Leveraging the security and transparency of decentralized technology, Chirpcaster offers users a seamless and secure platform for voice messaging without relying on traditional centralized servers. This ensures not only enhanced privacy and control over personal data but also resilience against censorship and downtime. Ideal for both personal and professional use, Chirpcaster exemplifies the merging of traditional communication methods with cutting-edge blockchain capabilities, providing a reliable and user-friendly alternative to conventional voice communication tools.

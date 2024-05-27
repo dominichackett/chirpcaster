@@ -9,11 +9,17 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fleekxyz/sdk": "^1.4.2",
     "@fortawesome/fontawesome-svg-core": "^6.5.1",
     "@fortawesome/free-solid-svg-icons": "^6.5.1",
     "@fortawesome/react-fontawesome": "^0.2.0",
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.0.18",
+    "@huddle01/react": "^2.0.14",
+    "@lit-protocol/auth-helpers": "6.0.0-beta.2",
+    "@lit-protocol/lit-auth-client": "6.0.0-beta.2",
+    "@lit-protocol/lit-node-client": "6.0.0-beta.2",
+    "@lit-protocol/types": "6.0.0-beta.2",
     "@onchain-id/identity-sdk": "^1.7.1",
     "@rainbow-me/rainbowkit": "^2.0.6",
     "@tailwindcss/forms": "^0.5.7",

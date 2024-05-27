@@ -9,11 +9,17 @@ import WalkieTalkie from '@/components/WalkieTalkie/WalkieTalkie'
 import {  PlusCircleIcon, UserGroupIcon} from '@heroicons/react/24/solid';
 import { useState ,useRef,useEffect} from 'react';
 import Notification from '@/components/Notification/Notification';
-
+import { JsonToBuffer } from '@/utils/utils';
+import { chirpCasterABI,chirpCasterAddress } from '@/contracts/contracts';
+import { ethers } from 'ethers';
+import { uploadToIPFS } from '@/fleek/fleek';
+import { useAccount} from 'wagmi'
+import { createRoom ,getAccessToken} from '@/litprotocol/lit';
 export default function Dashboard() {
     const [channels,setChannels] = useState([{channelId:1,name:"Main Channel"},{channelId:2,name:"Family"},{channelId:3,name:"54321123456789009876543211234567890"}])
    const [users,setUers] = useState([{address:1,name:"Dominic Hackett"},{address:2,name:"Dame Dollar"},{address:3,name:'Michael Jordan'}])
- // const signer = useEthersSigner()
+  const signer = useEthersSigner()
+  const account = useAccount()
  const [isSaving,setIsSaving] = useState()
  const [preview,setPreview] = useState()
  const [selectedFile, setSelectedFile] = useState()
@@ -30,10 +36,202 @@ export default function Dashboard() {
   const close = async () => {
 setShow(false);
 };
-const saveProfile = ()=>{
+const saveProfile = async()=>{
+  setIsSaving(true)
+   const name = document.getElementById("name").value
+   const description = document.getElementById("description").value 
+   if(!selectedFile && !profile?.image)
+   {   setDialogType(2) //Error
+       setNotificationTitle("Profile")
+       setNotificationDescription("Please select a profile picture")
+       setIsSaving(false)
+       setShow(true)
+       return
+   } 
+
+   if(!name || !description)
+   {
+
+    setDialogType(2) //Error
+    setNotificationTitle("Profile")
+    setNotificationDescription("Please enter profile details")
+    setShow(true)
+    setIsSaving(false)
+
+    return
+
+   }
+    
+    const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer) 
+   try{
+
+    setDialogType(3) //Info
+    setNotificationTitle("Profile");
+    setNotificationDescription("Uploading profile image.")
+    setShow(true)
   
+    let cid
+    let url =profile?.image
+    
+    if(selectedFile) //upload image file
+    {const result = await  uploadToIPFS(filename.current,selectedFile)
+    //console.log(await result.json())
+    
+     cid =result.cid.toV1().toString()
+     url = `https://${cid}.ipfs.cf-ipfs.com`
+    
+     setShow(false)
+    }
+     const profileData = {name:name,description:description,image:url}
+
+
+     const profile = await  uploadToIPFS("profile.json",JsonToBuffer(profileData))
+     const profileCID =profile.cid.toV1().toString()
+     const profileURL = `https://${profileCID}.ipfs.cf-ipfs.com`
+    
+     const tx = await contract.callStatic.updateProfile(profileURL)
+     const tx1 = await contract.updateProfile(profileURL)
+     await tx1.wait()
+     setDialogType(1) //Success
+     setNotificationTitle("Profile");
+     setNotificationDescription("Profile updated successfully.")
+     setShow(true)
+ 
+     setIsSaving(false)
+
+
+   }catch(error)
+   {
+      setDialogType(2) //Error
+      setNotificationTitle("Profile");
+      setNotificationDescription(error?.error?.data?.message ? error?.error?.data?.message: error.message )
+      setIsSaving(false)
+
+      setShow(true)
+    return
+   }
 }
 
+const addChannel = async()=>{
+  const channel = document.getElementById("channel").value
+  setIsSaving(true)
+   if(!channel) {
+    setDialogType(2) //Error
+    setNotificationTitle("Add Channel");
+    setNotificationDescription("Please enter a channel name.")
+    setShow(true)
+    setIsSaving(false)
+
+   
+  } 
+
+  const {ciphertext,dataToEncrypt,roomId} = await createRoom(signer,channel)
+  console.log(ciphertext)
+  console.log(dataToEncrypt)
+
+  const accessToken = await getAccessToken(signer,roomId,ciphertext,dataToEncrypt)
+  console.log(accessToken)
+  const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer)
+  try{
+
+    const tx = await contract.callStatic.createChannel(roomId,ciphertext,channel,dataToEncrypt)
+    const tx1 = await contract.createChannel(roomId,ciphertext,channel,dataToEncrypt)
+    setDialogType(1) //Success
+     setNotificationTitle("Add Channel");
+     setNotificationDescription("Channel created successfully.")
+     setShow(true)
+ 
+     setIsSaving(false)
+
+
+  }catch(error)
+  {
+    setDialogType(2) //Error
+    setNotificationTitle("Add Channel");
+    setNotificationDescription(error?.error?.data?.message ? error?.error?.data?.message: error.message )
+    setIsSaving(false)
+
+    setShow(true)
+  
+  }
+
+}
+const addUserToChannel = async()=>{
+  setIsSaving(true)
+  const channel = document.getElementById("addToChannel").value
+  const user = document.getElementById("user").value
+
+  if(!ethers.utils.isAddress(user)){
+    setDialogType(2) //Error
+    setNotificationTitle("Add User");
+    setNotificationDescription("Please enter an ethereum address.")
+    setShow(true)
+    setIsSaving(false)
+    return
+
+  }
+
+  if(!channel)
+  {
+    setDialogType(2) //Error
+    setNotificationTitle("Add User");
+    setNotificationDescription("Please select a channel.")
+    setShow(true)
+    setIsSaving(false)
+    return
+
+  }
+
+  const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer)
+  try{
+
+    const tx = await contract.callStatic.addUserToChannel(channel,user)
+    const tx1 = await contract.addUserToChannel(channel,user)
+    setDialogType(1) //Success
+     setNotificationTitle("Add User");
+     setNotificationDescription("User added successfully.")
+     setShow(true)
+ 
+     setIsSaving(false)
+
+
+  }catch(error)
+  {
+    setDialogType(2) //Error
+    setNotificationTitle("Add User");
+    setNotificationDescription(error?.error?.data?.message ? error?.error?.data?.message: error.message )
+    setIsSaving(false)
+
+    setShow(true)
+  
+  }
+}
+useEffect(()=>{
+ async function getProfile(){
+  const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer) 
+  try{
+        const _profile = await contract.getProfile(account.address) 
+        console.log(_profile)
+        if(_profile)
+        {
+          const _profileData = await fetch(_profile.uri)
+          const data = await _profileData.json()
+          console.log(data)
+          setProfile(data)
+          setPreview(data.image)
+        }
+        
+  }catch(error)
+  {
+     console.log(error)
+  }
+  
+ }
+
+   if(account?.address && signer)
+     getProfile()
+
+},[account?.address,signer])
 // create a preview as a side effect, whenever selected file is changed
 useEffect(() => {
     if (!selectedFile) {
@@ -121,7 +319,10 @@ const onSelectFile = (e) => {
                   className=" block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   placeholder="Channel"
                 />
-                <button className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 ml-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                <button className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 ml-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                   type='button'
+                   onClick={()=>addChannel()}
+                   >
                   Add
                 </button>
               </div>
@@ -166,7 +367,7 @@ const onSelectFile = (e) => {
 
             <div className="w-full mt-2">
               <div className="flex items-center ">
-              <select 
+              <select  id="addtoChannel"
             className="w-full rounded-md border border-stroke bg-[#353444] py-3 px-6 text-base font-medium text-body-color outline-none transition-all focus:bg-[#454457] focus:shadow-input"
             >
   {users.map((user) => (
@@ -192,7 +393,7 @@ const onSelectFile = (e) => {
 <div
           className= "mt-6 w-full relative  overflow-hidden rounded-xl bg-bg-color"
         >       
-        <form className="p-2 sm:p-10"  onSubmit={ saveProfile}>
+        <form className="p-2 sm:p-10" >
             <div className="-mx-5 flex flex-wrap xl:-mx-8">
               <div className="w-full px-5 lg:w-5/12 xl:px-8">
               <div className="mb-12 lg:mb-0">
@@ -201,13 +402,13 @@ const onSelectFile = (e) => {
                       disabled={isSaving }
                       required={!selectedFile ? true: false}
                       type="file"
-                      name="eventImage"
-                      id="eventImage"
+                      name="profileImage"
+                      id="profileImage"
                       className="sr-only"
                       onChange={onSelectFile}
                     />
                     <label
-                      for="eventImage"
+                      for="profileImage"
                       className="cursor-pointer relative flex h-[480px] min-h-[200px] items-center justify-center rounded-lg border border-dashed border-[#A1A0AE] bg-[#353444] p-12 text-center"
                     >
                      <img src={preview ? preview: '/images/profile.jpg'}/>
@@ -221,6 +422,8 @@ const onSelectFile = (e) => {
                   <div className="pt-2 ">
                     <button disabled={isSaving }
                       className="hover:shadow-form w-full rounded-md bg-primary py-3 px-8 text-center text-base font-semibold text-white outline-none"
+                    onClick={()=>saveProfile()}
+                    type="button"
                     >
                         Save Profile 
                                            </button>
@@ -250,6 +453,7 @@ const onSelectFile = (e) => {
                           type="text"
                           name="name"
                           id="name"
+                          defaultValue={profile?.name}
                           placeholder="Enter Name"
                           className="w-full rounded-md border border-stroke bg-[#353444] py-3 px-6 text-base font-medium text-body-color outline-none transition-all focus:bg-[#454457] focus:shadow-input"
                         />
@@ -278,6 +482,7 @@ const onSelectFile = (e) => {
                       rows="10"
                       name="description"
                       id="description"
+                      defaultValue={profile?.description}
                       placeholder="Type profile description"
                       className="w-full rounded-md border border-stroke bg-[#353444] py-3 px-6 text-base font-medium text-body-color outline-none transition-all focus:bg-[#454457] focus:shadow-input"
                     ></textarea>
