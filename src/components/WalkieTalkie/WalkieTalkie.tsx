@@ -10,13 +10,17 @@ import { useRoom ,useLocalAudio, usePeerIds,useLocalPeer,useActivePeers,useDataM
 import UserAudio from '../UserAudio/UserAudio';
 import { TPeerMetadata } from '@/utils/types';
 import UserCard from '../UserCard/UserCard';
+import MessageCard from '../MessageCard/MessageCard' 
+
  const WalkieTalkie = ({ refreshData,profile }) => {
   const signer = useEthersSigner()
   const account = useAccount()
   const { stream:localStream, enableAudio, disableAudio, isAudioOn } = useLocalAudio();
   const { peerId,updateMetadata } = useLocalPeer<TPeerMetadata>( {onMetadataUpdated: (data:any) => {console.log(data)}});
   const { peerIds } = usePeerIds();
-
+  const [selectedFile, setSelectedFile] = useState()
+  const filename = useRef()
+  
   const buttonRef = useRef(null);
   const windowRef = useRef(null);
   const [position, setPosition] = useState({ x: window.innerWidth - 100, y: window.innerHeight - 100 });
@@ -76,10 +80,10 @@ const waitingToJoin = async(data:any)=>{
     });
   };
 
-  const [messages,setMessages] = useState([{type:1,content:"This is a text message"}
+  const [_messages,_setMessages] = useState([{type:1,content:"This is a text message"}
   ,{type:2,content: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80'}
 ,{type:2,content:'/images/chirp.png'},{type:3,content:'/videos/chirp.mp4'}])
-
+const [messages,setMessages] = useState([])
   const handleMouseUp = () => {
     setDragging(false);
   };
@@ -200,6 +204,12 @@ const waitingToJoin = async(data:any)=>{
          setIsReceiving(false)
          setMicButtonColor("bg-blue-500")
       }
+      if(label=="message")
+      {
+
+         setMessages([...messages,{payload:payload,from:from,label:label,time:new Date().getTime()}])
+          console.log("Message")
+     }
   }
 
   const OnJoinChannel = async(channel:any)=>{
@@ -213,7 +223,7 @@ const waitingToJoin = async(data:any)=>{
 
   const OnLeaveChannel = async(data:any)=>{
     setChannelConnected(false)
-
+    setMessages([])
     console.log(data)
     console.log("leave")
   }
@@ -230,6 +240,38 @@ useEffect(()=>{
     getChannels() 
  
  },[account?.address,signer,refreshData])
+
+ const handleKeyDown  = async(event) =>{
+    if(event.key ==="Enter")
+    {
+        const _data = document.getElementById("textInput").value 
+        if(_data.length > 0)
+        {
+           console.log(_data)
+           if(channelConnected)
+           {
+                sendData({to:"*",payload:_data,label:"message"})
+             document.getElementById("textInput").value = ""
+ 
+          }
+        }
+    }
+
+
+ }
+
+ const onSelectFile = (e) => {
+  if (!e.target.files || e.target.files.length === 0) {
+      return
+  }
+
+  // I've kept this example simple by using the first image instead of multiple
+  setSelectedFile(e.target.files[0])
+  filename.current = e.target.files[0].name
+  setTarget(e.target.files)
+
+}
+
   return (
     <>
 
@@ -283,7 +325,8 @@ useEffect(()=>{
             className="w-full rounded-md border border-stroke bg-[#353444] py-3 px-6 text-base font-medium text-body-color outline-none transition-all focus:bg-[#454457] focus:shadow-input"
        onChange={connectToChannel}
        >
-        <option key={"-1"} value="-1">Select Channel</option>     
+        {channel == "-1" && <option key={"-1"} value="-1"> Select Channel </option>}
+        {channel != "-1" && <option key={"-1"} value="-1"> Click to Disconnect </option>}
   {channels.map((_channel) => (
     <option key={_channel.channelId} value={_channel.channelId}>
       {_channel.name}
@@ -315,18 +358,7 @@ useEffect(()=>{
           <div className="p-6 overflow-y-auto overflow-x-hidden max-h-[400px] h-[400px]  scrollbar-thumb-black scrollbar-track-white">
 
              {messages.map((message,index) => (
-        <div
-          key={message.type}
-          className="mt-4 w-full relative flex flex-col items-center space-x-3 rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400"
-        >
-       
-          <div className="flex items-center min-w-0 ">
-              {message.type == 1 && <p className="text-sm font-medium text-gray-900">{message.content}</p>}
-              {message.type == 2 && <p className="text-sm font-medium text-gray-900"><img src={message.content}/></p>}
-              {message.type == 3 && <p className="text-sm font-medium text-gray-900"><video src={message.content} controls autoPlay={false}/></p>}
-
-          </div>
-          </div>
+        <MessageCard key={message.time} message={message} localPeer={peerId} profile={profile} />
       ))}
                 
     
@@ -336,12 +368,23 @@ useEffect(()=>{
     <div className=" mr-4 ml-4 mt-2 flex items-center justify-between ">
       <input
         type="text"
+        id="textInput"
         placeholder="Type your message here..."
+        onKeyDown={handleKeyDown}
         className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 flex-1 mr-2"
       />
-      <button className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 focus:outline-none">
+    <label for='uploadfile'>  <span className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 focus:outline-none"
+      >
         <FontAwesomeIcon  icon={faUpload} className="w-6 h-6 mr-2" />
-      </button>
+      </span></label>
+      <input
+                       type="file"
+                      name="uploadfile"
+                      id="uploadfile"
+                      className="sr-only"
+                      onChange={onSelectFile}
+                    />
+                    
     </div>}
           { (selectedTab==3 && peerIds.length >0)  && 
           <div className="p-4 overflow-y-auto overflow-x-hidden max-h-[460px]  scrollbar-thumb-black scrollbar-track-white">
