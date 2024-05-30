@@ -1,9 +1,13 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract ChirpCaster is Ownable(msg.sender) {
-
+contract ChirpCaster is ERC1155, Ownable ,Pausable {
+using Counters for Counters.Counter;
+Counters.Counter private _tokenIdCounter;
  struct Profile {
     address owner;
     string uri;
@@ -12,6 +16,7 @@ contract ChirpCaster is Ownable(msg.sender) {
 
  struct Channel {
     string channelId;
+    uint256 tokenId;
     address owner;
     string name;
     string hash;
@@ -49,7 +54,7 @@ modifier profileRegistered(address user) {
      * @param channelId The ID of the channel to check.
      */
 modifier isChannelOwner(string memory channelId){
-   require(channels[msg.sender][channelId].isValue,"You don't own this channel.");
+   require(createdChannels[channelId].owner == msg.sender,"You don't own this channel.");
    _;
 }
  /**
@@ -97,7 +102,9 @@ function updateProfile(string memory uri) public {
 
 } 
 
-
+   constructor() ERC1155("https://mytoken.api/{id}.json") Ownable(msg.sender){
+      
+    }
 
    /**
      * @dev Retrieves the profile of a user.
@@ -114,12 +121,16 @@ function updateProfile(string memory uri) public {
      * @param channelId The unique ID of the channel.
      * @param name The name of the channel.
      */
-function createChannel(string memory channelId,string memory _ciphertext,string memory name ,string memory hash) public channelDoesNotExist(channelId) profileRegistered(msg.sender) {
-   Channel memory newChannel = Channel({channelId:channelId,owner:msg.sender,name:name,hash:hash,ciphertext:_ciphertext,isValue:true});
+function createChannel(string memory channelId,string memory _ciphertext,string memory name ,string memory hash) public channelDoesNotExist(channelId) profileRegistered(msg.sender) whenNotPaused {
+   _tokenIdCounter.increment();
+     uint256  _tokenId = _tokenIdCounter.current();
+   
+   Channel memory newChannel = Channel({channelId:channelId,tokenId:_tokenId,owner:msg.sender,name:name,hash:hash,ciphertext:_ciphertext,isValue:true});
    channels[msg.sender][channelId] =newChannel; 
    myCreatedChannels[msg.sender].push(newChannel);
    createdChannels[channelId] = newChannel;
    addUserToChannel(channelId,msg.sender); //Register the channel owner as a channel user
+   
    emit ChannelCreated(msg.sender, channelId,block.timestamp);
 
 }
@@ -144,6 +155,8 @@ function addUserToChannel(string memory channelId,address user) public isChannel
    channelUsers[channelId][user] = newChannelUser; 
    MyChannels memory _channel = MyChannels({channelId:channelId,name:createdChannels[channelId].name});
    myChannels[user].push(_channel) ; 
+   channelUsersArray[channelId].push(newChannelUser);
+   mint(user, channels[msg.sender][channelId].tokenId,"");
    emit UserAddedToChannel( channelId,user,block.timestamp);
 
 }
@@ -211,5 +224,15 @@ function getPrivateData()  public view  returns (string memory  _ciphertext ,str
 {
     return(ciphertext,dataToEncryptHash);
 } 
-
+function mint(
+    address to,
+    uint256 amount,
+    bytes memory data
+) internal  {
+    _tokenIdCounter.increment();
+    uint256 newTokenId = _tokenIdCounter.current();
+    _mint(to, newTokenId, amount, data);
 }
+}
+
+

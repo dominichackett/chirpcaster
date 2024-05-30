@@ -26,16 +26,17 @@ export const genAuthSig = async (
         expiration: ONE_WEEK_FROM_NOW,
         uri
     })
+    console.log(message)
     // Sign the message and format the authSig
     const signature = await wallet.signMessage(message);
 
     const authSig = {
         sig: signature,
         derivedVia: 'web3.eth.personal.sign',
-        signedMessage: signature,
+        signedMessage: message,
         address: await wallet.getAddress(),
     };
 
-
+    console.log(authSig)
     return authSig;
 }

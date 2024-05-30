@@ -1,8 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faComments, faUsers,faWalkieTalkie,faMicrophone,faUpload ,faVolumeMute,faVolumeHigh} from '@fortawesome/free-solid-svg-icons';
+import { faHome, faComments, faUsers,faWalkieTalkie,faMicrophone,faUpload ,faVolumeMute,faVolumeHigh,faWifi,faWifiStrong} from '@fortawesome/free-solid-svg-icons';
+import { useEthersSigner } from '@/signer/signer'
+import { useAccount} from 'wagmi'
+import { getAccessToken } from '@/utils/huddle';
+import { ethers } from 'ethers';
+import { chirpCasterABI,chirpCasterAddress } from '@/contracts/contracts';
+import { useRoom ,useLocalAudio, usePeerIds,useLocalPeer,useActivePeers,useDataMessage } from '@huddle01/react/hooks';
+import UserAudio from '../UserAudio/UserAudio';
+import { TPeerMetadata } from '@/utils/types';
+import UserCard from '../UserCard/UserCard';
+ const WalkieTalkie = ({ refreshData,profile }) => {
+  const signer = useEthersSigner()
+  const account = useAccount()
+  const { stream:localStream, enableAudio, disableAudio, isAudioOn } = useLocalAudio();
+  const { peerId,updateMetadata } = useLocalPeer<TPeerMetadata>( {onMetadataUpdated: (data:any) => {console.log(data)}});
+  const { peerIds } = usePeerIds();
 
-const WalkieTalkie = ({ onClick }) => {
   const buttonRef = useRef(null);
   const windowRef = useRef(null);
   const [position, setPosition] = useState({ x: window.innerWidth - 100, y: window.innerHeight - 100 });
@@ -12,49 +26,48 @@ const WalkieTalkie = ({ onClick }) => {
   const [micColor, setMicColor] = useState("white")
   const [micButtonColor, setMicButtonColor] = useState("bg-blue-500")
   const [selectedTab,setSelectedTab]  = useState(1)
-  const [channels,setChannels] = useState([{channelId:1,name:"Main Channel"},{channelId:2,name:"Family"},{channelId:3,name:"54321123456789009876543211234567890"}])
+  const [channels,setChannels] = useState([])
   const [mute,setMute] = useState(false)
-  const [users,setUsers] = useState([{
-    name: 'Leslie Alexander',
-    email: 'leslie.alexander@example.com',
-    role: 'Co-Founder / CEO',
-    imageUrl:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-  },{
-    name: 'Leslie Alexander',
-    email: 'l1eslie.alexander@example.com',
-    role: 'Co-Founder / CEO',
-    imageUrl:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-  },
+  const [channel,setChannel]  = useState("-1")
+  const [isTransmitting,setIsTransmitting] = useState(false)
+  const [isReceiving,setIsReceiving] = useState(false)
+  const [channelConnected,setChannelConnected] = useState(false)
+  const {
+    sendData
+  } = useDataMessage({
+    onMessage: (payload: string, from: string, label?: string)=>messageReceived(payload ,from, label)
+  });
+ 
+  const {
+    room,
+    state,
+    joinRoom,
+    leaveRoom,
+    closeRoom,
+    kickPeer,
+    muteEveryone,
+    closeStreamOfLabel,
+  } = useRoom({ onJoin: (data:any) =>OnJoinChannel("Channel"),onLeave:(data)=> OnLeaveChannel(data)
+  ,onFailed: (data)=> failedToJoin(data), onWaiting:(data)=>waitingToJoin(data),onPeerJoin:(data)=>peerJoined(data)} )
+
+  const {
+    activePeerIds,
+    dominantSpeakerId,
+  } = useActivePeers()
+const failedToJoin = async(data:any)=>
 {
-    name: 'L2eslie Alexander',
-    email: 'leslie.alexander@example.com',
-    role: 'Co-Founder / CEO',
-    imageUrl:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-},
-{
-    name: 'L3eslie Alexander',
-    email: 'leslie.alexander@example.com',
-    role: 'Co-Founder / CEO',
-    imageUrl:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-  },
-  {
-    name: 'L4eslie Alexander',
-    email: 'leslie.alexander@example.com',
-    role: 'Co-Founder / CEO',
-    imageUrl:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-},
-{
-  name: 'L5eslie Alexander',
-  email: 'leslie.alexander@example.com',
-  role: 'Co-Founder / CEO',
-  imageUrl:
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-}])
+   console.log(data)
+}
+const peerJoined = async(data:any)=>{
+   console.log(data)
+   console.log("Peer Joined")
+  
+}
+const waitingToJoin = async(data:any)=>{
+    console.log(data)
+    console.log("waiting")
+}
+ 
   const handleMouseDown = (e) => {
     setDragging(true);
     setOffset({
@@ -85,11 +98,33 @@ const WalkieTalkie = ({ onClick }) => {
 
   const transmitPressed = (e) => {
     setMicButtonColor("bg-red-500")
+    setIsTransmitting(true)
+    enableAudio()
   }
 
   const transmitReleased = (e) => {
     setMicButtonColor("bg-blue-500")
+    setIsTransmitting(false)
+    sendData({to:"*",payload:"End Transmission",label:"End Transmission"}); //send message to peers to signal end of transmission
+    disableAudio()
   }
+
+  useEffect(()=>{          
+    if(activePeerIds.length >0)
+    {
+       if(activePeerIds[0] != peerId)
+      {
+         setMicButtonColor("bg-green-500")
+         setIsReceiving(true)
+      }
+    }else
+    {
+        if(!isTransmitting)
+          setMicButtonColor("bg-blue-500")
+    }
+    console.log(activePeerIds)
+    
+  },[activePeerIds])
 
   useEffect(() => {
     document.addEventListener('mousemove', handleMouseMove);
@@ -131,9 +166,76 @@ const WalkieTalkie = ({ onClick }) => {
   const toggleMute = ()=>{
      setMute(!mute) 
   }
+   const connectToChannel = async(e:any)=>{
+
+    console.log(process.env.NEXT_PUBLIC_HUDDLE01_API_KEY)
+
+    if(e.target.value == "-1")
+    {
+        setChannel("-1")
+        leaveRoom()
+        return
+    }
+
+    setChannel(e.target.value)
+
+    try
+   { const accessToken = await getAccessToken(e.target.value)
+    console.log(accessToken)
+
+   // if(!isAudioOn)
+    //enableAudio()
+     const x = await joinRoom({roomId:e.target.value,token:accessToken.token})
+     console.log(x)
+   }catch(error)
+   { console.log(error)
+   }
+  
+  }
+
+
+  const messageReceived =(payload: string, from: string, label?: string)=>{
+    if(label=="End Transmission" && isReceiving)
+      {
+         setIsReceiving(false)
+         setMicButtonColor("bg-blue-500")
+      }
+  }
+
+  const OnJoinChannel = async(channel:any)=>{
+
+
+   setChannelConnected(true)
+    console.log(channel)
+    console.log("join")
+    updateMetadata({displayName:profile?.displayName,profilepic:profile?.profilepic})
+  }
+
+  const OnLeaveChannel = async(data:any)=>{
+    setChannelConnected(false)
+
+    console.log(data)
+    console.log("leave")
+  }
    
+useEffect(()=>{
+  async function getChannels(){
+ 
+     const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer)
+     const _channels = await contract.getMyChannels() 
+     console.log(_channels)
+     setChannels(_channels)
+  }
+  if(account?.address && signer)
+    getChannels() 
+ 
+ },[account?.address,signer,refreshData])
   return (
     <>
+
+            {peerIds.map((peerId) =>
+              peerId ? <UserAudio  key={peerId} peerId={peerId} mute={mute} /> : null
+            )}
       {minimized ? (
         <button
           ref={buttonRef}
@@ -168,15 +270,23 @@ const WalkieTalkie = ({ onClick }) => {
           </div>
           {selectedTab === 1 && (
   <div className="flex flex-col justify-start items-center h-full">
-    <span className="font-bold text-white mt-4">Channels</span>
+    <div className="flex  justify-start items-center ">
+    <span className="font-bold text-white mt-4 pr-2">Channels</span>
+    {channelConnected && <FontAwesomeIcon icon={faWifiStrong}  color="lightgreen" />}
+    {!channelConnected && <FontAwesomeIcon icon={faWifi}  color="red" />}
+
+
+    </div>
     <div className="w-full pt-2 p-4"> 
- 
-    <select 
+
+    <select value={channel}
             className="w-full rounded-md border border-stroke bg-[#353444] py-3 px-6 text-base font-medium text-body-color outline-none transition-all focus:bg-[#454457] focus:shadow-input"
-            >
-  {channels.map((channel) => (
-    <option key={channel.channelId} value={channel.channelId}>
-      {channel.name}
+       onChange={connectToChannel}
+       >
+        <option key={"-1"} value="-1">Select Channel</option>     
+  {channels.map((_channel) => (
+    <option key={_channel.channelId} value={_channel.channelId}>
+      {_channel.name}
     </option>
   ))}
 </select>
@@ -188,7 +298,9 @@ const WalkieTalkie = ({ onClick }) => {
         onMouseDown={transmitPressed}
         onMouseUp={transmitReleased}
       >
-        <FontAwesomeIcon icon={faMicrophone} size="2x" color={micColor} />
+       {micButtonColor =="bg-blue-500" && <FontAwesomeIcon icon={faMicrophone} size="2x" color={micColor} />}
+       {micButtonColor =="bg-green-500" && <FontAwesomeIcon icon={faVolumeHigh} size="2x" color={micColor} />}
+
       </button>
 
       <div className=" flex mt-4 w-full bg-bg-red cursor-pointer">
@@ -231,24 +343,11 @@ const WalkieTalkie = ({ onClick }) => {
         <FontAwesomeIcon  icon={faUpload} className="w-6 h-6 mr-2" />
       </button>
     </div>}
-          { selectedTab==3 && 
+          { (selectedTab==3 && peerIds.length >0)  && 
           <div className="p-4 overflow-y-auto overflow-x-hidden max-h-[460px]  scrollbar-thumb-black scrollbar-track-white">
 
-             {users.map((user) => (
-        <div
-          key={user.email}
-          className="m-2 w-full relative flex items-center space-x-3 rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400"
-        >
-            <div className="flex-shrink-0">
-            <img className="h-10 w-10 rounded-full" src={user.imageUrl} alt="" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <a href="#" className="focus:outline-none">
-              <span className="absolute inset-0" aria-hidden="true" />
-              <p className="text-sm font-medium text-gray-900">{user.name}</p>
-            </a>
-          </div>
-          </div>
+             {peerIds.map((peerId) => (
+          peerId ? <UserCard  key={peerId} peerId={peerId} /> : null
       ))}
           </div>}
           <div className="flex justify-between p-4 absolute bottom-0 left-0 w-full bg-bg-color text-white rounded-b-lg">

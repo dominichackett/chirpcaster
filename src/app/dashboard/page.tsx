@@ -14,10 +14,10 @@ import { chirpCasterABI,chirpCasterAddress } from '@/contracts/contracts';
 import { ethers } from 'ethers';
 import { uploadToIPFS } from '@/fleek/fleek';
 import { useAccount} from 'wagmi'
-import { createRoom ,getAccessToken} from '@/litprotocol/lit';
+import { createRoom,getAccessToken } from '@/utils/huddle';
 export default function Dashboard() {
-    const [channels,setChannels] = useState([{channelId:1,name:"Main Channel"},{channelId:2,name:"Family"},{channelId:3,name:"54321123456789009876543211234567890"}])
-   const [users,setUers] = useState([{address:1,name:"Dominic Hackett"},{address:2,name:"Dame Dollar"},{address:3,name:'Michael Jordan'}])
+  const [channels,setChannels] = useState([])
+  const [users,setUers] = useState([])
   const signer = useEthersSigner()
   const account = useAccount()
  const [isSaving,setIsSaving] = useState()
@@ -28,6 +28,7 @@ export default function Dashboard() {
  const [profileExist,setProfileExist] = useState(false)
  const [gotProfile,setGotProfile] = useState(false)
  const [profile,setProfile] = useState({})
+ const [refreshData,setRefreshData] = useState(new Date().getTime())
  // NOTIFICATIONS functions
   const [notificationTitle, setNotificationTitle] = useState();
   const [notificationDescription, setNotificationDescription] = useState();
@@ -36,6 +37,19 @@ export default function Dashboard() {
   const close = async () => {
 setShow(false);
 };
+
+useEffect(()=>{
+ async function getChannels(){
+
+    const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer)
+    const _channels = await contract.getCreatedChannels() 
+    console.log(_channels)
+    setChannels(_channels)
+ }
+ if(account?.address && signer)
+   getChannels() 
+
+},[account?.address,signer,refreshData])
 const saveProfile = async()=>{
   setIsSaving(true)
    const name = document.getElementById("name").value
@@ -85,8 +99,8 @@ const saveProfile = async()=>{
      const profileData = {name:name,description:description,image:url}
 
 
-     const profile = await  uploadToIPFS("profile.json",JsonToBuffer(profileData))
-     const profileCID =profile.cid.toV1().toString()
+     const _profile = await  uploadToIPFS("profile.json",JsonToBuffer(profileData))
+     const profileCID =_profile.cid.toV1().toString()
      const profileURL = `https://${profileCID}.ipfs.cf-ipfs.com`
     
      const tx = await contract.callStatic.updateProfile(profileURL)
@@ -121,34 +135,55 @@ const addChannel = async()=>{
     setNotificationDescription("Please enter a channel name.")
     setShow(true)
     setIsSaving(false)
+    return
 
    
   } 
 
-  const {ciphertext,dataToEncrypt,roomId} = await createRoom(signer,channel)
-  console.log(ciphertext)
-  console.log(dataToEncrypt)
+     setDialogType(3) //Info
+     setNotificationTitle("Add Channel");
+     setNotificationDescription("Creating ChirpCaster channel.")
+     setShow(true)
+ 
+  const roomId = await createRoom(signer,channel)
+ 
 
-  const accessToken = await getAccessToken(signer,roomId,ciphertext,dataToEncrypt)
-  console.log(accessToken)
+  //const accessToken = await getAccessToken(signer,roomId,ciphertext,dataToEncryptHash)
+  //console.log(accessToken)
   const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer)
   try{
 
-    const tx = await contract.callStatic.createChannel(roomId,ciphertext,channel,dataToEncrypt)
-    const tx1 = await contract.createChannel(roomId,ciphertext,channel,dataToEncrypt)
+    const tx = await contract.callStatic.createChannel(roomId,"NODATA",channel,"NODATA")
+    const tx1 = await contract.createChannel(roomId,"NODATA",channel,"NODATA")
+    await tx1.wait()
     setDialogType(1) //Success
      setNotificationTitle("Add Channel");
      setNotificationDescription("Channel created successfully.")
      setShow(true)
  
      setIsSaving(false)
+     setRefreshData(new Date().getTime())
 
 
   }catch(error)
   {
+    
+
+    if (error.code === "TRANSACTION_REVERTED") {
+      console.log("Transaction reverted");
+      // let revertReason = ethers.utils.parseRevertReason(error.data);
+      setNotificationDescription("Reverted");
+    } else if (error.code === "ACTION_REJECTED") {
+      setNotificationDescription("Transaction rejected by user");
+    } else {
+      console.log(error);
+      //const errorMessage = ethers.utils.revert(error.reason);
+      setNotificationDescription(
+        `Transaction failed with error: ${error.reason}`
+      );
+    }
     setDialogType(2) //Error
     setNotificationTitle("Add Channel");
-    setNotificationDescription(error?.error?.data?.message ? error?.error?.data?.message: error.message )
     setIsSaving(false)
 
     setShow(true)
@@ -156,6 +191,17 @@ const addChannel = async()=>{
   }
 
 }
+
+const getChannelUsers = async (event:any)=>{
+  const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer)
+  console.log(event.target.value)
+  const _users = await contract.getChannelUsers(event.target.value)
+  console.log(_users)
+  setUers(_users)
+}
+
+
+
 const addUserToChannel = async()=>{
   setIsSaving(true)
   const channel = document.getElementById("addToChannel").value
@@ -171,7 +217,7 @@ const addUserToChannel = async()=>{
 
   }
 
-  if(!channel)
+  if(!channel || channel=="")
   {
     setDialogType(2) //Error
     setNotificationTitle("Add User");
@@ -196,10 +242,23 @@ const addUserToChannel = async()=>{
 
 
   }catch(error)
-  {
+{
+  if (error.code === "TRANSACTION_REVERTED") {
+    console.log("Transaction reverted");
+    // let revertReason = ethers.utils.parseRevertReason(error.data);
+    setNotificationDescription("Reverted");
+  } else if (error.code === "ACTION_REJECTED") {
+    setNotificationDescription("Transaction rejected by user");
+  } else {
+    console.log(error);
+    //const errorMessage = ethers.utils.revert(error.reason);
+    setNotificationDescription(
+      `Transaction failed with error: ${error.reason}`
+    );
+  }
+  
     setDialogType(2) //Error
     setNotificationTitle("Add User");
-    setNotificationDescription(error?.error?.data?.message ? error?.error?.data?.message: error.message )
     setIsSaving(false)
 
     setShow(true)
@@ -214,7 +273,16 @@ useEffect(()=>{
         console.log(_profile)
         if(_profile)
         {
-          const _profileData = await fetch(_profile.uri)
+          const _profileData= await fetch("/api/getprofile", {
+            method: "POST",
+            body: JSON.stringify({
+             profileurl:_profile.uri
+            }),
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }); 
+
           const data = await _profileData.json()
           console.log(data)
           setProfile(data)
@@ -269,7 +337,7 @@ const onSelectFile = (e) => {
       </Head>
       <main className="bg-black"
        
-     >     <WalkieTalkie  />
+     >     <WalkieTalkie  refreshData={refreshData} profile={{displayName:profile?.name,profilepic:profile?.image}}/>
 
          <Header/>
 
@@ -330,9 +398,11 @@ const onSelectFile = (e) => {
 
             <div className="w-full mt-2">
               <div className="flex items-center ">
-              <select 
+              <select onChange={getChannelUsers} 
+              id="addToChannel"
             className="w-full rounded-md border border-stroke bg-[#353444] py-3 px-6 text-base font-medium text-body-color outline-none transition-all focus:bg-[#454457] focus:shadow-input"
             >
+            <option>Select Channel</option>
   {channels.map((channel) => (
     <option key={channel.channelId} value={channel.channelId}>
       {channel.name}
@@ -359,7 +429,10 @@ const onSelectFile = (e) => {
                   className=" block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   placeholder="User Address"
                 />
-                <button className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 ml-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                <button className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 ml-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                type='button'
+                onClick={()=>addUserToChannel()}
+                >
                   Add
                 </button>
               </div>
@@ -367,12 +440,12 @@ const onSelectFile = (e) => {
 
             <div className="w-full mt-2">
               <div className="flex items-center ">
-              <select  id="addtoChannel"
+              <select  id="addToChannel"
             className="w-full rounded-md border border-stroke bg-[#353444] py-3 px-6 text-base font-medium text-body-color outline-none transition-all focus:bg-[#454457] focus:shadow-input"
             >
   {users.map((user) => (
-    <option key={user.address} value={user.address}>
-      {user.name}
+    <option key={user.user} value={user.user}>
+      {user.user}
     </option>
   ))}
 </select>
