@@ -275,7 +275,7 @@ useEffect(()=>{
         if(_profile)
         {
 
-          const _profileData= await fetch(_profile.url)
+          const _profileData= await fetch(_profile.uri)
          /* const _profileData= await fetch("/api/getprofile", {
             method: "POST",
             body: JSON.stringify({
