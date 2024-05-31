@@ -1,7 +1,7 @@
 {
     "functions": {
      
-      "src/api/*.tsx": {
+      "api/*.tsx": {
         "maxDuration": 60 
       }
     }
