@@ -11,7 +11,11 @@ import UserAudio from '../UserAudio/UserAudio';
 import { TPeerMetadata } from '@/utils/types';
 import UserCard from '../UserCard/UserCard';
 import MessageCard from '../MessageCard/MessageCard' 
-
+import { decryptMessage,encryptMessage,encryptText,decryptText } from '@/litprotocol/lit';
+import { base64StringToBlob } from '@lit-protocol/lit-node-client';
+import { uploadToIPFS } from '@/fleek/fleek';
+import { JsonToBuffer } from '@/utils/utils';
+import { base64ToURL,getFileExtension } from '@/utils/utils';
  const WalkieTalkie = ({ refreshData,profile }) => {
   const signer = useEthersSigner()
   const account = useAccount()
@@ -36,6 +40,8 @@ import MessageCard from '../MessageCard/MessageCard'
   const [isTransmitting,setIsTransmitting] = useState(false)
   const [isReceiving,setIsReceiving] = useState(false)
   const [channelConnected,setChannelConnected] = useState(false)
+  const [channelTokenId,setChannelTokenId] = useState()
+  const [channelTokens,setChannelTokens]  = useState(new Map())
   const {
     sendData
   } = useDataMessage({
@@ -182,6 +188,8 @@ const [messages,setMessages] = useState([])
     }
 
     setChannel(e.target.value)
+    console.log(channelTokens.get(e.target.value))
+    setChannelTokenId(channelTokens.get(e.target.value))
 
     try
    { const accessToken = await getAccessToken(e.target.value)
@@ -198,7 +206,7 @@ const [messages,setMessages] = useState([])
   }
 
 
-  const messageReceived =(payload: string, from: string, label?: string)=>{
+  const messageReceived =async(payload: string, from: string, label?: string)=>{
     if(label=="End Transmission" && isReceiving)
       {
          setIsReceiving(false)
@@ -206,9 +214,28 @@ const [messages,setMessages] = useState([])
       }
       if(label=="message")
       {
-
-         setMessages([...messages,{payload:payload,from:from,label:label,time:new Date().getTime()}])
+        const _data = JSON.parse(payload)  
+        const textMessage = await decryptText(_data.ciphertext,_data.dataToEncryptHash)
+        console.log(textMessage)
+        setMessages([...messages,{payload:textMessage.response,from:from,label:label,time:new Date().getTime()}])
           console.log("Message")
+     }
+     if(label=="image" || label == "video")
+     {  
+                 
+      try{
+      const data = JSON.parse(payload) 
+      const  res = JSON.parse(await decryptMessage(data.url,data.dataToEncryptHash))
+      const filedata = base64StringToBlob(res.file)
+      const url = URL.createObjectURL(filedata)
+
+
+      setMessages([...messages,{payload:url,from:from,label:res.filetype,time:new Date().getTime()}])
+      }catch(error)
+      {
+        console.log(error)
+
+      }
      }
   }
 
@@ -233,6 +260,10 @@ useEffect(()=>{
  
      const contract = new ethers.Contract(chirpCasterAddress,chirpCasterABI,signer)
      const _channels = await contract.getMyChannels() 
+     for(const _channel in _channels)
+     {
+         channelTokens.set(_channels[_channel].channelId,_channels[_channel].tokenId.toNumber());
+     }
      console.log(_channels)
      setChannels(_channels)
   }
@@ -250,7 +281,10 @@ useEffect(()=>{
            console.log(_data)
            if(channelConnected)
            {
-                sendData({to:"*",payload:_data,label:"message"})
+                
+               const {ciphertext,dataToEncryptHash} = await encryptText(_data) 
+                const payload = JSON.stringify({ciphertext,dataToEncryptHash}) 
+                sendData({to:"*",payload:payload,label:"message"})
              document.getElementById("textInput").value = ""
  
           }
@@ -260,16 +294,43 @@ useEffect(()=>{
 
  }
 
- const onSelectFile = (e) => {
-  if (!e.target.files || e.target.files.length === 0) {
+ const onSelectFile = async(e) => {
+  if (!e.target.files || e.target.files.length === 0 || !channelConnected) {
       return
   }
 
   // I've kept this example simple by using the first image instead of multiple
   setSelectedFile(e.target.files[0])
-  filename.current = e.target.files[0].name
-  setTarget(e.target.files)
+  
+   const _filename = e.target.files[0].name
+    let fileType
+    const input = e.target;
+    const file = input.files[0];
+    const _fileType = file.type;
 
+    console.log('Selected file type:', _fileType);
+
+    if (_fileType.startsWith('image/')) {
+      console.log('The selected file is an image.');
+      fileType="image"
+    } else if (_fileType.startsWith('video/')) {
+      console.log('The selected file is a video.');
+      fileType="video"
+    } else {
+      console.log('The selected file is neither an image nor a video.');
+      return
+    }
+
+    const {ciphertext,dataToEncryptHash} = await encryptMessage(file,_filename,fileType)
+    const fileInfo = {ciphertext:ciphertext,dataToEncryptHash:dataToEncryptHash}
+    const result = await  uploadToIPFS("profile.json",JsonToBuffer(fileInfo))
+    //console.log(await result.json())
+    
+     const cid =result.cid.toV1().toString()
+     const url = `https://${cid}.ipfs.cf-ipfs.com`
+    const payload = JSON.stringify({url:url,dataToEncryptHash:dataToEncryptHash})
+    sendData({to:"*",payload:payload,label:fileType})
+  
 }
 
   return (

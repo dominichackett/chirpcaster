@@ -34,6 +34,7 @@ struct ChannelUser {
 struct MyChannels {
       string channelId;
       string name;
+      uint256 tokenId;
 
 }
 
@@ -153,7 +154,7 @@ function getCreatedChannels() public view  returns(Channel[] memory){
 function addUserToChannel(string memory channelId,address user) public isChannelOwner(channelId) profileRegistered(user) userNotInChannel(channelId,user){
    ChannelUser memory newChannelUser = ChannelUser({user:user,active:true,isValue:true});
    channelUsers[channelId][user] = newChannelUser; 
-   MyChannels memory _channel = MyChannels({channelId:channelId,name:createdChannels[channelId].name});
+   MyChannels memory _channel = MyChannels({channelId:channelId,name:createdChannels[channelId].name,tokenId:createdChannels[channelId].tokenId});
    myChannels[user].push(_channel) ; 
    channelUsersArray[channelId].push(newChannelUser);
    mint(user, channels[msg.sender][channelId].tokenId,"");

@@ -12,7 +12,7 @@ import {
   ledgerWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import {
-  filecoinCalibration,sepolia
+  filecoinCalibration
 } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
@@ -40,7 +40,7 @@ const config = getDefaultConfig({
   ],
   chains: [
     filecoinCalibration
-    ,sepolia
+    
   ],
   ssr: true,
 });

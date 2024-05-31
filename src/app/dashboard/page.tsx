@@ -233,6 +233,7 @@ const addUserToChannel = async()=>{
 
     const tx = await contract.callStatic.addUserToChannel(channel,user)
     const tx1 = await contract.addUserToChannel(channel,user)
+    await tx1.wait()
     setDialogType(1) //Success
      setNotificationTitle("Add User");
      setNotificationDescription("User added successfully.")

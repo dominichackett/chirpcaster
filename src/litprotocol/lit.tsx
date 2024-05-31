@@ -1,11 +1,21 @@
-import { LitNodeClient, encryptString,decryptToString } from "@lit-protocol/lit-node-client";
+import { LitNodeClient, encryptString,decryptToString,blobToBase64String,base64StringToBlob } from "@lit-protocol/lit-node-client";
 import { genSession } from "./session";
 import {genAuthSig} from './genauthsig'
-import { joinRoomCode} from "./litactions";
+import { joinRoomCode,decryptCode} from "./litactions";
 import { LitAbility, LitAccessControlConditionResource, LitActionResource } from "@lit-protocol/auth-helpers";
 import { SessionSigsMap } from '@lit-protocol/types';
 import { chirpCasterAddress } from "@/contracts/contracts";
-import { sign } from "crypto";
+import { ethers } from "ethers";
+
+const wallet = new ethers.Wallet(process.env.NEXT_PUBLIC_PRIVATE_KEY)
+
+
+const provider = new ethers.providers.JsonRpcProvider(
+"https://api.calibration.node.glif.io/rpc/v1"  );
+
+const signer = wallet.connect(provider);
+
+
 let createRoomURL = "https://api.huddle01.com/api/v1/create-room"
 let joinRoomURL = "https://api.huddle01.com/api/v1/join-room-token"
 let client = new LitNodeClient({
@@ -19,7 +29,7 @@ async function connectClient(){
 }
 
 
-const _accessControlConditions =  [
+const accessControlConditions =  [
     {
       contractAddress: "",
       standardContractType: "",
@@ -28,7 +38,7 @@ const _accessControlConditions =  [
       parameters: [":userAddress"],
       returnValueTest: {
         comparator: "=",
-        value: "0x654bA1c9809F16aFD9845B5ef86cd68b77DB4F26",
+        value: "0x5858769800844ab75397775Ca2Fa87B270F7FbBe",
       },
     },
   ];
@@ -39,267 +49,155 @@ const _accessControlConditions =  [
   
 
 
-const chain = 'sepolia';
+const chain = 'ethereum';
 
-export const createRoom = async(signer:any,name:string)=>
+
+
+
+export const encryptMessage = async(file:File,filename:string,filetype:string)=>
 {  
      
     await client.connect();
     
-    let roomId
-     const response = await fetch("/api/createroom", {
-        method: "POST",
-        body: JSON.stringify({
-          title: name,
-          hostWallets: [await signer.getAddress()]
-        }),
-        headers: {
-          "Content-Type": "application/json"
-        }
-      });
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const responseData = await response.json();
-      console.log(responseData)
-
-      if (responseData.message === "Room Created Successfully") {
-          roomId = responseData.data.roomId;
-      } else {
-        throw new Error(responseData.message || 'Error creating room');
-      }
-    
-      const accessControlConditions = [
-        {
-          contractAddress: '0x7d7Fe6Cd962ba9b495DB162D825A87fD8563397e',
-          standardContractType: 'ERC1155',
-          chain,
-          method: 'balanceOf',
-          parameters: [
-            ':userAddress',
-            '1'
-          ],
-          returnValueTest: {
-            comparator: '>',
-            value: '0'
-          }
-        }
-      ]
- const __accessControlConditions = [
-     {
-        conditionType: "evmBasic",
-
-        contractAddress: chirpCasterAddress,
-         standardContractType: '',
-         chain: 'sepolia',
-         method: 'userInChannel',
-        
-         parameters: [roomId,':userAddress'],
-         returnValueTest: {
-             comparator: '=',
-             value: 'true',
-         },
-     },
- ];
-
- const unifiedAccessControlConditions   = [
-    {
-      contractAddress: chirpCasterAddress, // Replace with your actual contract address
-      conditionType: "evmContract",
-
-      functionName: "userInChannel",
-      functionParams: [roomId, ":userAddress"], // Placeholder for dynamic user address
-      functionAbi: {
-        type: "function",
-        stateMutability: "view",
-        outputs: [
-          {
-            type: "bool",
-            name: "",
-            internalType: "bool",
-          },
-        ],
-        name: "userInChannel",
-        inputs: [
-          {
-            type: "string",
-            name: "roomId",
-            internalType: "string",
-          },
-          {
-            type: "address",
-            name: "userAddress",
-            internalType: "address",
-          },
-        ],
-      },
-      chain: "sepolia", // Specify the blockchain network
-      returnValueTest: {
-        key: "",
-        comparator: "=",
-        value: "true", // Expecting boolean true as a string
-      },
-    },
-  ];
-  
- 
-     /*const session = await genSession(signer, client, [
-        {
-            resource: new LitActionResource('*'),
-            ability: LitAbility.LitActionExecution,
-        },
-        {
-            resource: new LitAccessControlConditionResource('*'),
-            ability: LitAbility.AccessControlConditionDecryption,
-        }
-    ]);*/
-     //console.log(session)
-     
+     const fileData = await blobToBase64String(file)
      const { ciphertext, dataToEncryptHash } = await encryptString(
          {
             accessControlConditions:accessControlConditions ,
-       //   sessionSigs: session,
-       //     chain,
-             dataToEncrypt: JSON.stringify({roomId:roomId,apiKey:process.env.NEXT_PUBLIC_HUDDLE01_API_KEY})
+       
+             dataToEncrypt: JSON.stringify({filetype:filetype,filename:filename,file:fileData})
          },
          client
      );
      
      
      console.log("cipher text:", ciphertext, "hash:", dataToEncryptHash);
-     return {ciphertext,dataToEncryptHash,roomId}
+     return {ciphertext,dataToEncryptHash}
    
 }
-/*
-Here we are encypting our key for secure use within an action
-this code should be run once and the ciphertext and dataToEncryptHash stored for later sending
-to the Lit Action in 'jsParams'
-*/
-export const getAccessToken= async(signer:any,roomId:string,ciphertext:string,dataToEncryptHash:string)=>
-{   
 
 
+export const encryptText = async(textMessage:string)=>
+{  
+     
     await client.connect();
-    console.log(roomId)
-    console.log(ciphertext)
-    console.log(dataToEncryptHash)
-    const accessControlConditions = [
-        {
-          contractAddress: '0x7d7Fe6Cd962ba9b495DB162D825A87fD8563397e',
-          standardContractType: 'ERC1155',
-          chain,
-          method: 'balanceOf',
-          parameters: [
-            ':userAddress',
-            '1'
-          ],
-          returnValueTest: {
-            comparator: '>',
-            value: '0'
-          }
-        }
-      ]
-    const __accessControlConditions = [
-        {
-            conditionType: "evmBasic",
-
-            contractAddress: chirpCasterAddress,
-            standardContractType: '',
-            chain: 'sepolia',
-            method: 'userInChannel',
-           
-            parameters: [roomId,':userAddress'],
-            returnValueTest: {
-                comparator: '=',
-                value: 'true',
-            },
-        },
-    ];
-
-    const unifiedAccessControlConditions   = [
-        {
-          contractAddress: chirpCasterAddress, // Replace with your actual contract address
-          conditionType: "evmContract",
     
-          functionName: "userInChannel",
-          functionParams: [roomId, ":userAddress"], // Placeholder for dynamic user address
-          functionAbi: {
-            type: "function",
-            stateMutability: "view",
-            outputs: [
-              {
-                type: "bool",
-                name: "",
-                internalType: "bool",
-              },
-            ],
-            name: "userInChannel",
-            inputs: [
-              {
-                type: "string",
-                name: "roomId",
-                internalType: "string",
-              },
-              {
-                type: "address",
-                name: "userAddress",
-                internalType: "address",
-              },
-            ],
-          },
-          chain: "sepolia", // Specify the blockchain network
-          returnValueTest: {
-            key: "",
-            comparator: "=",
-            value: "true", // Expecting boolean true as a string
-          },
-        },
-      ];
+
+     const { ciphertext, dataToEncryptHash } = await encryptString(
+         {
+            accessControlConditions:accessControlConditions ,
+       
+             dataToEncrypt: textMessage
+         },
+         client
+     );
+     
+     
+     console.log("cipher text:", ciphertext, "hash:", dataToEncryptHash);
+     return {ciphertext,dataToEncryptHash}
+   
+}
+
+
+
+export const decryptMessage = async(url:string,dataToEncryptHash:string)=>
+{  
+     
+    await client.connect();
+    
+
+      const accsResourceString = 
+      await LitAccessControlConditionResource.generateResourceString(accessControlConditions , dataToEncryptHash);
+  const sessionForDecryption = await genSession(signer, client, [
+      {
+          resource: new LitActionResource("*"),
+          ability: LitAbility.LitActionExecution,
+      },
+  {
+          resource: new LitAccessControlConditionResource(accsResourceString),
+          ability: LitAbility.AccessControlConditionDecryption,
+      }
+  ]);
+  
+  /*
+  Here we use the encrypted key by sending the
+  ciphertext and dataToEncryptHash to the action
+  */ 
+  
+  const sessionSigs: SessionSigsMap =sessionForDecryption;
+  console.log(sessionForDecryption)
+  console.log(sessionSigs)
+ const response = await fetch("/api/gethash", {
+    method: "POST",
+    body: JSON.stringify({
+      url: url,
       
-    const accsResourceString = 
-    await LitAccessControlConditionResource.generateResourceString(accessControlConditions , dataToEncryptHash);
-const sessionForDecryption = await genSession(signer, client, [
-    {
-        resource: new LitActionResource("*"),
-        ability: LitAbility.LitActionExecution,
-    },
-{
-        resource: new LitAccessControlConditionResource(accsResourceString),
-        ability: LitAbility.AccessControlConditionDecryption,
+    }),
+    headers: {
+      "Content-Type": "application/json"
     }
-]);
+  });
 
-/*
-Here we use the encrypted key by sending the
-ciphertext and dataToEncryptHash to the action
-*/ 
+  if (!response.ok) {
+    throw new Error('Network response was not ok');
+  }
+console.log(accessControlConditions)
 
-const sessionSigs: SessionSigsMap =sessionForDecryption;
-console.log(sessionForDecryption)
-console.log(sessionSigs)
+const responseData = await response.json();
+  console.log(responseData)
 
-/*const x =await decryptToString(  {
-    unifiedAccessControlConditions,
-    sessionSigs:sessionForDecryption,
-    chain,ciphertext,dataToEncryptHash},client)
+  const data =await decryptToString(  {
+    accessControlConditions,
+    sessionSigs:sessionSigs,
+    ciphertext:responseData.ciphertext,
+    chain,dataToEncryptHash},client)
+   console.log(data)
+    return data
 
-console.log(x)
- return*/
+     
+   
+}
+
+
+export const decryptText = async(ciphertext:string,dataToEncryptHash:string)=>
+{  
+     
+    await client.connect();
+    
+
+      const accsResourceString = 
+      await LitAccessControlConditionResource.generateResourceString(accessControlConditions , dataToEncryptHash);
+  const sessionForDecryption = await genSession(signer, client, [
+      {
+          resource: new LitActionResource("*"),
+          ability: LitAbility.LitActionExecution,
+      },
+  {
+          resource: new LitAccessControlConditionResource(accsResourceString),
+          ability: LitAbility.AccessControlConditionDecryption,
+      }
+  ]);
+  
+  /*
+  Here we use the encrypted key by sending the
+  ciphertext and dataToEncryptHash to the action
+  */ 
+  
+  const sessionSigs: SessionSigsMap =sessionForDecryption;
+ 
 const res = await client.executeJs({
     sessionSigs,
-    code: joinRoomCode(joinRoomURL),
+    code: decryptCode(),
     jsParams: {
         sessionSigs,
-        ciphertext,
-        dataToEncryptHash,
-        accessControlConditions ,chain,roomId
+         dataToEncryptHash,
+         ciphertext, 
+        accessControlConditions ,chain
     }
 });
 
-
+     
 console.log("result from action execution:", res);
 return res
-
+   
 }
