@@ -1,13 +1,10 @@
 {
     "functions": {
-      "app/api/**/*": {
-        "maxDuration": 60 
+      "app/api/getprofile/*.tsx": {
+        "maxDuration": 30
       },
-      "app/api/getprofile/*": {
-        "maxDuration": 60 
-      },
-      "app/api/gethash/*": {
-        "maxDuration": 60 
+      "app/api/gethash/*.tsx": {
+        "maxDuration": 60
       }
     }
   }
