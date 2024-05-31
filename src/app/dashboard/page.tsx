@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [users,setUers] = useState([])
   const signer = useEthersSigner()
   const account = useAccount()
- const [isSaving,setIsSaving] = useState()
+ const [isSaving,setIsSaving] = useState(false)
  const [preview,setPreview] = useState()
  const [selectedFile, setSelectedFile] = useState()
  const [target,setTarget] = useState()
