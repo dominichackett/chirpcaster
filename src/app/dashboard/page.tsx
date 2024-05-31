@@ -326,6 +326,13 @@ const onSelectFile = (e) => {
     setTarget(e.target.files)
   
   }
+
+
+  if (typeof window === 'undefined') {
+    // This code runs on the server
+    return null;
+  }
+
   return (
     <>
       <Head>

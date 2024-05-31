@@ -11,6 +11,11 @@ export default function Home() {
  const handleClick = () => {
   alert('Floating button clicked!');
 };
+
+if (typeof window === 'undefined') {
+  // This code runs on the server
+  return null;
+}
   return (
     <>
       <Head>
