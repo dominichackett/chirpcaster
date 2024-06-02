@@ -109,6 +109,8 @@ const [messages,setMessages] = useState([])
 
   const transmitPressed = (e) => {
     setMicButtonColor("bg-red-500")
+    sendData({to:"*",payload:"Begin Transmission",label:"Begin Transmission"}); //send message to peers to signal end of transmission
+
     setIsTransmitting(true)
     enableAudio()
   }
@@ -120,23 +122,7 @@ const [messages,setMessages] = useState([])
     disableAudio()
   }
 
-  useEffect(()=>{          
-    if(activePeerIds.length >0)
-    {
-       if(activePeerIds[0] != peerId)
-      {
-         setMicButtonColor("bg-green-500")
-         setIsReceiving(true)
-      }
-    }else
-    {
-        if(!isTransmitting)
-          setMicButtonColor("bg-blue-500")
-    }
-    console.log(activePeerIds)
-    
-  },[activePeerIds])
-
+  
   useEffect(() => {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -213,6 +199,13 @@ const [messages,setMessages] = useState([])
          setIsReceiving(false)
          setMicButtonColor("bg-blue-500")
       }
+
+      if(label=="Begin Transmission" && !isTransmitting)
+      {
+         setIsReceiving(true)
+         setMicButtonColor("bg-green-500")
+      }
+
       if(label=="message")
       {
         const _data = JSON.parse(payload)  
